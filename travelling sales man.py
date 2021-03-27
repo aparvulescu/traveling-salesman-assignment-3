@@ -1,30 +1,21 @@
-# I'm blue, if I were green I would die
-
 import math
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
+# plt.rcParams.update({'font.size': 20})
 
 def dist_calc(origin, target):
-    '''
-    origin is a tuple with the logitude and latitude of the origin location in degrees (lat, long)
-    target is a tuple with the logitude and latitude of the target location in degrees (lat, long)
-    '''
     R = 6371e3  # Earth radius [m]
-
     phi1 = origin[0] * math.pi / 180
     phi2 = target[0] * math.pi / 180
     dphi = (target[0] - origin[0]) * math.pi / 180
     dlambda = (target[1] - origin[1]) * math.pi / 180
-
     a = math.sin(dphi / 2) * math.sin(dphi / 2) + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) * math.sin(
         dlambda / 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     d = R * c  # [m]
-
     return d
-
 
 def constr_dist_matrix(IATA_lst, coord_lst):
     n = len(IATA_lst)
@@ -34,7 +25,6 @@ def constr_dist_matrix(IATA_lst, coord_lst):
             if i != j:
                 a[i][j] = a[j][i] = dist_calc(coord_lst[i], coord_lst[j])
     return a
-
 
 def init_population(population_size):
     population = np.zeros((population_size, len(IATA_lst)))
@@ -49,7 +39,6 @@ def init_population(population_size):
                 cities_left.remove(next_city)
                 population[j][k] = IATA_lst.index(next_city)
     return population
-
 
 def dist_route(population):
     dist_matrix = constr_dist_matrix(IATA_lst, coord_lst)
@@ -70,46 +59,32 @@ def dist_route(population):
     return dist_lst, total_dist
 
 def population_ranking(population, distances):
+    population = population.tolist()
+    distances = distances
     for i in range(len(distances) - 1):
         for j in range(i + 1, len(distances)):
             if distances[i] > distances[j]:
-                a = distances[i]
-                distances[i] = distances[j]
-                distances[j] = a
-                b = population[i]
-                population[i] = population[j]
-                population[j] = b
-    return population, distances
+                a, b = distances[i], distances[j]
+                distances[i], distances[j] = b, a 
+                c, d = population[i], population[j]
+                population[i], population[j] = d, c
+    return np.array(population), distances
 
 def swap_cities(population):
-    for i in range(population):
-        for j in range(population[i]):
-            a, b = random.randint(1,len(population[i])), random.randint(1,len(population[i]))
+    for i in range(len(population)):
+        for j in range(random.randint(1, 10)):
+            a, b = random.randint(1,len(population[i])-1), random.randint(1,len(population[i])-1)
             if a != b:
                 population[i][b], population[i][a] = population[i][a], population[i][b]
             else:
                 None
     return population
 
-
 def breeding(parent1, parent2):
     child = []
-    startCut = random.randint(0, len(parent2) - 1)
+    startCut = random.randint(1, len(parent2) - 1)
     endCut = random.randint(startCut + 1, len(parent2))
     cut2 = parent2[startCut:endCut]
-    '''
-    j = 0
-    for i in range(len(parent1)):
-        if parent1[i] not in cut2:
-            child.append(parent1[i])
-            j += 1
-        if j == startCut:
-            break
-    child.extend(cut2)
-    for k in range(i + 1, len(parent1)):
-        if parent1[i] not in cut2:
-            child.append(parent1[i])
-    '''
     i = j = k = 0
     while k < len(parent1):
         if k < startCut or k >= endCut:
@@ -120,12 +95,44 @@ def breeding(parent1, parent2):
         else:
             child.extend(cut2)
             k += len(cut2)
-    print(f"cut2 is {cut2}")
-    print(f"startCut is {startCut}")
-    print(f"endCut is {endCut}")
-    return np.array(child)
+    return child
 
+def pop_after_breeding(population):
+    population = population.tolist()
+    size = int(len(population) / 4)
+    elite = population[:size]
+    plebs = population[size:]
+    good_plebs = random.choices(plebs, k=size)
+    new_pop = elite[:]
+    new_pop.extend(good_plebs)
+    for noble in elite:
+        child1 = breeding(noble, random.choice(elite))
+        child2 = breeding(noble, random.choice(good_plebs))
+        new_pop.append(child1)
+        new_pop.append(child2)
+    while len(new_pop) < len(population):
+        child = breeding(random.choice(elite), random.choice(good_plebs))
+        new_pop.append(child)
+    new_pop = new_pop[:len(population)]
+    return np.array(new_pop)
 
+def mutation(population):
+    num_mut = int(len(population)*0.5)
+    population_lst = []
+    to_mutate_lst = []
+    for i in range(len(population)):
+        population_lst.append(i)
+    for j in range(num_mut):
+        to_mutate = random.choice(population_lst)
+        to_mutate_lst.append(population[to_mutate])
+        population_lst.remove(to_mutate)
+    mutations = swap_cities(to_mutate_lst)
+    new_population = []
+    for routes in population_lst:
+        new_population.append(population[routes].tolist())
+    mutated_population = new_population + mutations
+    return np.array(mutated_population)    
+    
 IATA_lst = ["ROO", "AMS", "ANR", "BRU", "CRL", "DHR", "EIN", "ENS", "GLZ", "GRQ", "KJK", "LEY", "LGG", "LID", "LUX",
             "LWR", "MST", "OBL", "OST", "RTM", "UDE", "UTC", "WOE"]
 coord_lst = [(51.535849, 4.4653213), (52.308056, 4.764167), (51.1893997192, 4.46027994156), (50.9008, 4.4840),
@@ -136,26 +143,42 @@ coord_lst = [(51.535849, 4.4653213), (52.308056, 4.764167), (51.1893997192, 4.46
              (51.1988983154, 2.8622200489), (51.95694, 4.43722), (51.6544444444, 5.6861111111),
              (52.1294, 5.27258), (51.4491, 4.34203)]
 
-'''
-test1 = (51.535849, 4.4653213)
-test2 = (52.308056, 4.764167)
-print(dist_calc)
-'''
-print(constr_dist_matrix(IATA_lst, coord_lst))
-
-
-# iterations = 10
-population_size = 4
-# distance_his = []
-# current_best = []
+iterations = 1000
+population_size = 50
 
 population = init_population(population_size)
 distances, total_dist = dist_route(population)
-print(distances,total_dist)
 population, distances = population_ranking(population, distances)
+time = [0]
+distance_his = [total_dist]
+best_lst = [distances[0]]
+
+for current in range(1, iterations + 1):
+    population = pop_after_breeding(population)
+    population = mutation(population)
+    distances, total_dist = dist_route(population)
+    population, distances = population_ranking(population, distances)
+    time.append(current)
+    distance_his.append(total_dist)
+    best_lst.append(distances[0])
 
 
-parent1 = np.array([0, 1, 2, 3, 4, 5, 6, 7])
-parent2 = np.array([7, 6, 2, 1, 3, 0, 5, 4])
-child = breeding(parent1, parent2)
-print(child)
+for i in population[0]:
+    print(f"{IATA_lst[int(i)]} ")
+
+fig = plt.figure()
+ax1 = fig.add_subplot(211)
+ax2 = fig.add_subplot(212)
+ax1.plot(time,distance_his)
+ax2.plot(time,best_lst)
+
+ax1.title.set_text("Total distances of all routes in population over time")
+ax2.title.set_text("Shortest distance in current population over time")
+
+ax1.set_xlabel("Iteration")
+ax1.set_ylabel("Total distance [m]")
+ax2.set_xlabel("Iterations")
+ax2.set_ylabel("Shortest distance [m]")
+
+plt.tight_layout()
+plt.show()
