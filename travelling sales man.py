@@ -3,7 +3,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
-# plt.rcParams.update({'font.size': 20})
+plt.rcParams.update({'font.size': 20})
 
 def dist_calc(origin, target):
     R = 6371e3  # Earth radius [m]
@@ -52,7 +52,7 @@ def dist_route(population):
             else:
                 dist_city = dist_matrix[int(population[i][j-1])][int(population[i][j])]
                 dist.append(dist_city)
-                dist.append(dist_matrix[int(population[i][j])][int(population[i][0])])
+        dist.append(dist_matrix[int(population[i][-1])][int(population[i][0])]) #?
         dist_lst.append(sum(dist))
 
     total_dist = sum(dist_lst)
@@ -72,7 +72,7 @@ def population_ranking(population, distances):
 
 def swap_cities(population):
     for i in range(len(population)):
-        for j in range(random.randint(1, 10)):
+        for j in range(random.randint(1, 4)):
             a, b = random.randint(1,len(population[i])-1), random.randint(1,len(population[i])-1)
             if a != b:
                 population[i][b], population[i][a] = population[i][a], population[i][b]
@@ -107,7 +107,7 @@ def pop_after_breeding(population):
     new_pop.extend(good_plebs)
     for noble in elite:
         child1 = breeding(noble, random.choice(elite))
-        child2 = breeding(noble, random.choice(good_plebs))
+        child2 = breeding(noble, random.choice(elite))
         new_pop.append(child1)
         new_pop.append(child2)
     while len(new_pop) < len(population):
@@ -143,8 +143,8 @@ coord_lst = [(51.535849, 4.4653213), (52.308056, 4.764167), (51.1893997192, 4.46
              (51.1988983154, 2.8622200489), (51.95694, 4.43722), (51.6544444444, 5.6861111111),
              (52.1294, 5.27258), (51.4491, 4.34203)]
 
-iterations = 1000
-population_size = 50
+iterations = 5000
+population_size = 35
 
 population = init_population(population_size)
 distances, total_dist = dist_route(population)
@@ -162,9 +162,11 @@ for current in range(1, iterations + 1):
     distance_his.append(total_dist)
     best_lst.append(distances[0])
 
-
+stri = ""
 for i in population[0]:
-    print(f"{IATA_lst[int(i)]} ")
+    stri += f"{IATA_lst[int(i)]} "
+print(stri)
+print(f"Best route is {distances[0]/1000} km long.")
 
 fig = plt.figure()
 ax1 = fig.add_subplot(211)
